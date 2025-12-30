@@ -389,9 +389,10 @@ public actor MonoCollection: DocumentFinder {
 
                     // 检查数据是否改变
                     if record != newData {
-                        // 检查唯一约束
+                        // 检查唯一约束（排除当前文档的 _id）
                         if let im = indexManager {
-                            try await im.checkUniqueConstraints(doc)
+                            let currentId = originalDoc.getValue(forPath: "_id")
+                            try await im.checkUniqueConstraints(doc, excludingId: currentId)
                         }
 
                         // 更新记录
@@ -420,6 +421,13 @@ public actor MonoCollection: DocumentFinder {
             for (key, value) in filter {
                 if !key.hasPrefix("$") {
                     newDoc[key] = value
+                }
+            }
+
+            // 应用 $setOnInsert（仅在 upsert 插入时生效）
+            if let setOnInsertVal = updateDoc["$setOnInsert"], case .document(let setOnInsertDoc) = setOnInsertVal {
+                for (k, v) in setOnInsertDoc {
+                    setField(&newDoc, key: k, value: v)
                 }
             }
 
@@ -509,6 +517,12 @@ public actor MonoCollection: DocumentFinder {
             for (key, value) in filter {
                 if !key.hasPrefix("$") {
                     newDoc[key] = value
+                }
+            }
+            // 应用 $setOnInsert（仅在 upsert 插入时生效）
+            if let setOnInsertVal = updateDoc["$setOnInsert"], case .document(let setOnInsertDoc) = setOnInsertVal {
+                for (k, v) in setOnInsertDoc {
+                    setField(&newDoc, key: k, value: v)
                 }
             }
             try applyUpdate(&newDoc, update: updateDoc)

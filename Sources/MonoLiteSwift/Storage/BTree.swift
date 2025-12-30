@@ -756,4 +756,125 @@ public actor BTree {
             node = try await readNode(node.next)
         }
     }
+
+    // MARK: - 高级查询（与 Go 版本对齐）
+
+    /// 从尾部反向获取 limit 条记录
+    /// 用于分段采样验证，获取索引尾部的记录
+    public func searchRangeLimitReverse(_ limit: Int) async throws -> [Data] {
+        guard limit > 0 else { return [] }
+
+        // 找到最后一个叶子节点
+        var node = try await readNode(rootPageId)
+        while !node.isLeaf {
+            // 走到最右边的子节点
+            guard node.keyCount < node.children.count else {
+                break
+            }
+            node = try await readNode(node.children[node.keyCount])
+        }
+
+        // 从最后一个叶子节点反向遍历
+        var results: [Data] = []
+        results.reserveCapacity(limit)
+
+        while results.count < limit {
+            // 从节点末尾向前遍历
+            for i in stride(from: node.keyCount - 1, through: 0, by: -1) {
+                if results.count >= limit { break }
+                results.append(node.values[i])
+            }
+
+            // 移动到前一个叶子节点
+            if node.prev == StorageConstants.invalidPageId {
+                break
+            }
+            node = try await readNode(node.prev)
+        }
+
+        return results
+    }
+
+    /// 跳过 skip 条记录后获取 limit 条记录
+    /// 用于分段采样验证，获取索引中间位置的记录
+    public func searchRangeLimitSkip(skip: Int, limit: Int) async throws -> [Data] {
+        guard limit > 0 else { return [] }
+
+        var results: [Data] = []
+        results.reserveCapacity(limit)
+        var skipped = 0
+
+        // 找到起始叶子节点
+        var node = try await readNode(rootPageId)
+        while !node.isLeaf {
+            node = try await readNode(node.children[0])
+        }
+
+        // 遍历叶子节点链表
+        while true {
+            for i in 0..<node.keyCount {
+                // 先跳过 skip 条
+                if skipped < skip {
+                    skipped += 1
+                    continue
+                }
+
+                // 检查是否已达到限制
+                if results.count >= limit {
+                    return results
+                }
+
+                results.append(node.values[i])
+            }
+
+            // 移动到下一个叶子节点
+            if node.next == StorageConstants.invalidPageId {
+                break
+            }
+            node = try await readNode(node.next)
+        }
+
+        return results
+    }
+
+    /// 获取所有键
+    public func getAllKeys() async throws -> [Data] {
+        var keys: [Data] = []
+
+        // 找到第一个叶子节点
+        var node = try await readNode(rootPageId)
+        while !node.isLeaf {
+            node = try await readNode(node.children[0])
+        }
+
+        // 遍历叶子链表
+        while true {
+            keys.append(contentsOf: node.keys)
+            if node.next == StorageConstants.invalidPageId {
+                break
+            }
+            node = try await readNode(node.next)
+        }
+
+        return keys
+    }
+
+    /// 获取树的高度
+    public func height() async throws -> Int {
+        var h = 0
+        var node = try await readNode(rootPageId)
+
+        while !node.isLeaf {
+            h += 1
+            node = try await readNode(node.children[0])
+        }
+
+        return h + 1  // 包括叶子层
+    }
+
+    /// 完整验证树（检查键的顺序、节点键数范围等）
+    public func verify() async throws {
+        try await checkTreeIntegrity()
+        try await checkLeafChain()
+    }
 }

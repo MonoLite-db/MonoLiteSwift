@@ -91,7 +91,7 @@ public enum OpReplyBuilder {
 
         let header = WireMessageHeader(
             messageLength: Int32(16 + body.count),
-            requestId: Int32.random(in: 1..<Int32.max),
+            requestId: OpMsgParser.nextRequestId(),
             responseTo: requestId,
             opCode: WireOpCode.reply.rawValue
         )

@@ -115,6 +115,10 @@ public func applyUpdate(_ doc: inout BSONDocument, update: BSONDocument) throws 
                 setCurrentDate(&doc, key: dateKey, spec: dateVal)
             }
 
+        case "$setOnInsert":
+            // $setOnInsert 仅在 upsert 产生新文档时生效，在普通更新中忽略
+            break
+
         default:
             // 非操作符字段，直接设置（替换模式）
             if !key.hasPrefix("$") {

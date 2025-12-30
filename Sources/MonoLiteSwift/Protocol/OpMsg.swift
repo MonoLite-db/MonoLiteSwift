@@ -41,10 +41,30 @@ extension ProtocolParseError {
     }
 }
 
+/// 全局请求 ID 计数器（原子递增，与 Go 版本对齐）
+private let _requestIdCounter = RequestIdCounter()
+
+private final class RequestIdCounter: @unchecked Sendable {
+    private var value: Int32 = 0
+    private let lock = NSLock()
+
+    func next() -> Int32 {
+        lock.lock()
+        defer { lock.unlock() }
+        value &+= 1
+        return value
+    }
+}
+
 public enum OpMsgParser {
     // required bits mask: bits 0-15
     private static let requiredBitsMask: UInt32 = 0xFFFF
     private static let knownRequiredBits: UInt32 = OpMsgFlags.checksumPresent.rawValue | OpMsgFlags.moreToCome.rawValue
+
+    /// 获取下一个请求 ID（线程安全）
+    static func nextRequestId() -> Int32 {
+        _requestIdCounter.next()
+    }
 
     /// Parse OP_MSG body (without 16-byte wire header).
     /// If `fullMessage` is provided (header+body, including checksum), it is used to verify CRC32C when checksumPresent flag is set.
@@ -172,7 +192,7 @@ public enum OpMsgParser {
 
         let header = WireMessageHeader(
             messageLength: Int32(16 + body.count),
-            requestId: Int32.random(in: 1..<Int32.max),
+            requestId: nextRequestId(),
             responseTo: requestId,
             opCode: WireOpCode.msg.rawValue
         )

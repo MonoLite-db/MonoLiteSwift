@@ -186,12 +186,18 @@ public final class MongoWireTCPServer: @unchecked Sendable {
         }
     }
 
+    /// 读取超时（5 分钟，与 Go 版本对齐）
+    private static let readTimeoutSeconds: Int = 5 * 60
+
     private func handleConnection(connFD: Int32) async {
         defer {
             Task { await state.removeConn(connFD) }
             shutdown(connFD, SHUT_RDWR)
             close(connFD)
         }
+
+        // 设置读取超时（Go parity: 5 分钟）
+        Self.setReadTimeout(fd: connFD, seconds: Self.readTimeoutSeconds)
 
         while true {
             if await state.stopped { return }
@@ -296,6 +302,14 @@ public final class MongoWireTCPServer: @unchecked Sendable {
             throw MonoError.internalError("getsockname failed: \(errno)")
         }
         return UInt16(bigEndian: addr.sin_port)
+    }
+
+    /// 设置读取超时（与 Go 的 SetReadDeadline 对齐）
+    private static func setReadTimeout(fd: Int32, seconds: Int) {
+        var tv = timeval()
+        tv.tv_sec = seconds
+        tv.tv_usec = 0
+        _ = setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
     }
 }
 
