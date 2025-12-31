@@ -2,44 +2,59 @@
 
 import Foundation
 
-/// ExplainResult contains query execution plan statistics (Go parity: engine/explain.go)
+/// 查询执行计划统计信息（对齐 Go: engine/explain.go）
+/// EN: Query execution plan statistics (Go parity: engine/explain.go)
 public struct ExplainResult: Sendable {
-    /// Total index keys examined
+    /// 检查的索引键总数
+    /// EN: Total index keys examined
     public var totalKeysExamined: Int64 = 0
 
-    /// Total documents examined
+    /// 检查的文档总数
+    /// EN: Total documents examined
     public var totalDocsExamined: Int64 = 0
 
-    /// Execution time in milliseconds
+    /// 执行时间（毫秒）
+    /// EN: Execution time in milliseconds
     public var executionTimeMs: Int64 = 0
 
-    /// Namespace (db.collection)
+    /// 命名空间（数据库.集合）
+    /// EN: Namespace (db.collection)
     public var namespace: String = ""
 
-    /// Index name used (empty = collection scan)
+    /// 使用的索引名称（空表示全表扫描）
+    /// EN: Index name used (empty = collection scan)
     public var indexUsed: String = ""
 
-    /// Index bounds (for display)
+    /// 索引边界（用于显示）
+    /// EN: Index bounds (for display)
     public var indexBounds: BSONDocument?
 
-    /// Stage type (COLLSCAN / IXSCAN / FETCH / EOF)
+    /// 执行阶段类型（COLLSCAN / IXSCAN / FETCH / EOF）
+    /// EN: Stage type (COLLSCAN / IXSCAN / FETCH / EOF)
     public var stage: String = "COLLSCAN"
 
-    /// Whether index is multikey
+    /// 索引是否为多键索引
+    /// EN: Whether index is multikey
     public var isMultiKey: Bool = false
 
-    /// Whether sort stage exists
+    /// 是否有排序阶段
+    /// EN: Whether sort stage exists
     public var hasSortStage: Bool = false
 
-    /// Whether projection is requested
+    /// 是否请求了投影
+    /// EN: Whether projection is requested
     public var hasProjection: Bool = false
 
-    /// Number of documents returned
+    /// 返回的文档数量
+    /// EN: Number of documents returned
     public var nReturned: Int64 = 0
 
+    /// 初始化
+    /// EN: Initialize
     public init() {}
 
-    /// Convert to BSON document (Go parity: ToBSON)
+    /// 转换为 BSON 文档（对齐 Go: ToBSON）
+    /// EN: Convert to BSON document (Go parity: ToBSON)
     public func toBSON() -> BSONDocument {
         let winningPlan = BSONDocument([
             ("stage", .string(stage)),
@@ -70,39 +85,52 @@ public struct ExplainResult: Sendable {
     }
 }
 
-/// Explain verbosity level
+/// Explain 详细程度级别
+/// EN: Explain verbosity level
 public enum ExplainVerbosity: String, Sendable {
+    /// 仅查询计划
+    /// EN: Query planner only
     case queryPlanner = "queryPlanner"
+
+    /// 执行统计信息
+    /// EN: Execution stats
     case executionStats = "executionStats"
+
+    /// 所有计划执行
+    /// EN: All plans execution
     case allPlansExecution = "allPlansExecution"
 }
 
 // MARK: - MonoCollection.explain
 
 extension MonoCollection {
-    /// Explain query execution plan (Go parity: Collection.Explain)
+    /// 解释查询执行计划（对齐 Go: Collection.Explain）
+    /// EN: Explain query execution plan (Go parity: Collection.Explain)
     ///
-    /// Note: Current implementation always outputs COLLSCAN because index scan execution is not implemented yet.
+    /// 注意：当前实现始终输出 COLLSCAN，因为索引扫描执行尚未实现。
+    /// EN: Note: Current implementation always outputs COLLSCAN because index scan execution is not implemented yet.
     public func explain(filter: BSONDocument, sort: BSONDocument? = nil, projection: BSONDocument? = nil) async -> ExplainResult {
         var result = ExplainResult()
         result.namespace = "\(info.name)"
         result.stage = "COLLSCAN"
 
-        // Check sort stage
+        // 检查排序阶段
+        // EN: Check sort stage
         if let s = sort, !s.isEmpty {
             result.hasSortStage = true
         }
 
-        // Check projection
+        // 检查投影
+        // EN: Check projection
         if let p = projection, !p.isEmpty {
             result.hasProjection = true
         }
 
-        // Document count
+        // 文档数量
+        // EN: Document count
         result.totalDocsExamined = Int64(info.documentCount)
         result.totalKeysExamined = 0
 
         return result
     }
 }
-

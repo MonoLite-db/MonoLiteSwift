@@ -5,15 +5,20 @@ import Foundation
 // MARK: - ObjectID
 
 /// MongoDB ObjectID（12 字节）
+/// EN: MongoDB ObjectID (12 bytes).
 /// 格式：4字节时间戳 + 5字节随机值 + 3字节计数器
+/// EN: Format: 4-byte timestamp + 5-byte random value + 3-byte counter.
 public struct ObjectID: Hashable, Sendable, CustomStringConvertible, Comparable {
     /// 原始字节数据
+    /// EN: Raw byte data.
     public let bytes: Data
 
     /// ObjectID 的字节长度
+    /// EN: Byte length of ObjectID.
     public static let length = 12
 
     /// 随机值（进程生命周期内固定）
+    /// EN: Random value (fixed for process lifetime).
     private static let randomBytes: Data = {
         var bytes = Data(count: 5)
         _ = bytes.withUnsafeMutableBytes { ptr in
@@ -23,14 +28,17 @@ public struct ObjectID: Hashable, Sendable, CustomStringConvertible, Comparable 
     }()
 
     /// 计数器（原子递增）
+    /// EN: Counter (atomically incremented).
     private static var counter = UInt32.random(in: 0..<0xFFFFFF)
     private static let counterLock = NSLock()
 
     /// 生成新的 ObjectID
+    /// EN: Generates a new ObjectID.
     public static func generate() -> ObjectID {
         var data = Data(count: 12)
 
         // 4 字节时间戳（大端序）
+        // EN: 4-byte timestamp (big-endian)
         let timestamp = UInt32(Date().timeIntervalSince1970)
         data[0] = UInt8((timestamp >> 24) & 0xFF)
         data[1] = UInt8((timestamp >> 16) & 0xFF)
@@ -38,6 +46,7 @@ public struct ObjectID: Hashable, Sendable, CustomStringConvertible, Comparable 
         data[3] = UInt8(timestamp & 0xFF)
 
         // 5 字节随机值
+        // EN: 5-byte random value
         data[4] = randomBytes[0]
         data[5] = randomBytes[1]
         data[6] = randomBytes[2]
@@ -45,6 +54,7 @@ public struct ObjectID: Hashable, Sendable, CustomStringConvertible, Comparable 
         data[8] = randomBytes[4]
 
         // 3 字节计数器（大端序）
+        // EN: 3-byte counter (big-endian)
         counterLock.lock()
         let count = counter
         counter = (counter + 1) & 0xFFFFFF
@@ -58,12 +68,14 @@ public struct ObjectID: Hashable, Sendable, CustomStringConvertible, Comparable 
     }
 
     /// 从字节数据创建
+    /// EN: Creates from byte data.
     public init(bytes: Data) {
         precondition(bytes.count == 12, "ObjectID must be 12 bytes")
         self.bytes = bytes
     }
 
     /// 从十六进制字符串创建
+    /// EN: Creates from hexadecimal string.
     public init?(hexString: String) {
         guard hexString.count == 24 else { return nil }
 
@@ -83,6 +95,7 @@ public struct ObjectID: Hashable, Sendable, CustomStringConvertible, Comparable 
     }
 
     /// 十六进制字符串表示
+    /// EN: Hexadecimal string representation.
     public var hexString: String {
         bytes.map { String(format: "%02x", $0) }.joined()
     }
@@ -92,6 +105,7 @@ public struct ObjectID: Hashable, Sendable, CustomStringConvertible, Comparable 
     }
 
     /// 时间戳
+    /// EN: Timestamp.
     public var timestamp: Date {
         let ts = UInt32(bytes[0]) << 24 | UInt32(bytes[1]) << 16 |
                  UInt32(bytes[2]) << 8 | UInt32(bytes[3])
@@ -106,12 +120,16 @@ public struct ObjectID: Hashable, Sendable, CustomStringConvertible, Comparable 
 // MARK: - BSONTimestamp
 
 /// MongoDB 时间戳（8 字节）
+/// EN: MongoDB timestamp (8 bytes).
 /// 格式：4字节秒 + 4字节序号
+/// EN: Format: 4-byte seconds + 4-byte ordinal.
 public struct BSONTimestamp: Hashable, Sendable, Comparable, CustomStringConvertible {
     /// 秒（Unix 时间戳）
+    /// EN: Seconds (Unix timestamp).
     public let t: UInt32
 
     /// 序号
+    /// EN: Ordinal number.
     public let i: UInt32
 
     public init(t: UInt32, i: UInt32) {
@@ -143,8 +161,10 @@ public struct BSONTimestamp: Hashable, Sendable, Comparable, CustomStringConvert
 // MARK: - BSONBinary
 
 /// BSON 二进制数据
+/// EN: BSON binary data.
 public struct BSONBinary: Hashable, Sendable {
     /// 二进制子类型
+    /// EN: Binary subtype.
     public enum Subtype: UInt8, Sendable {
         case generic = 0x00
         case function = 0x01
@@ -166,12 +186,14 @@ public struct BSONBinary: Hashable, Sendable {
     }
 
     /// 从 UUID 创建
+    /// EN: Creates from UUID.
     public init(uuid: UUID) {
         self.subtype = .uuid
         self.data = withUnsafeBytes(of: uuid.uuid) { Data($0) }
     }
 
     /// 转换为 UUID（仅当 subtype 为 uuid 时）
+    /// EN: Converts to UUID (only when subtype is uuid).
     public var uuid: UUID? {
         guard subtype == .uuid, data.count == 16 else { return nil }
         return data.withUnsafeBytes { ptr in
@@ -183,6 +205,7 @@ public struct BSONBinary: Hashable, Sendable {
 // MARK: - BSONRegex
 
 /// BSON 正则表达式
+/// EN: BSON regular expression.
 public struct BSONRegex: Hashable, Sendable, CustomStringConvertible {
     public let pattern: String
     public let options: String
@@ -190,6 +213,7 @@ public struct BSONRegex: Hashable, Sendable, CustomStringConvertible {
     public init(pattern: String, options: String = "") {
         self.pattern = pattern
         // 选项必须按字母顺序排列
+        // EN: Options must be sorted alphabetically
         self.options = String(options.sorted())
     }
 
@@ -198,6 +222,7 @@ public struct BSONRegex: Hashable, Sendable, CustomStringConvertible {
     }
 
     /// 转换为 NSRegularExpression
+    /// EN: Converts to NSRegularExpression.
     public func toNSRegularExpression() throws -> NSRegularExpression {
         var nsOptions: NSRegularExpression.Options = []
 
@@ -218,11 +243,14 @@ public struct BSONRegex: Hashable, Sendable, CustomStringConvertible {
 // MARK: - Decimal128
 
 /// BSON Decimal128（IEEE 754-2008 128位十进制浮点数）
+/// EN: BSON Decimal128 (IEEE 754-2008 128-bit decimal floating point).
 public struct Decimal128: Hashable, Sendable, CustomStringConvertible {
     /// 高64位
+    /// EN: High 64 bits.
     public let high: UInt64
 
     /// 低64位
+    /// EN: Low 64 bits.
     public let low: UInt64
 
     public init(high: UInt64, low: UInt64) {
@@ -239,6 +267,7 @@ public struct Decimal128: Hashable, Sendable, CustomStringConvertible {
     }
 
     /// 转换为 Double（可能损失精度）
+    /// EN: Converts to Double (may lose precision).
     public var doubleValue: Double {
         switch decodedKind() {
         case .nan:
@@ -453,6 +482,7 @@ public struct Decimal128: Hashable, Sendable, CustomStringConvertible {
 // MARK: - MinKey / MaxKey
 
 /// BSON MinKey（最小值）
+/// EN: BSON MinKey (minimum value).
 public struct MinKey: Hashable, Sendable, CustomStringConvertible {
     public static let shared = MinKey()
 
@@ -462,6 +492,7 @@ public struct MinKey: Hashable, Sendable, CustomStringConvertible {
 }
 
 /// BSON MaxKey（最大值）
+/// EN: BSON MaxKey (maximum value).
 public struct MaxKey: Hashable, Sendable, CustomStringConvertible {
     public static let shared = MaxKey()
 
@@ -473,6 +504,7 @@ public struct MaxKey: Hashable, Sendable, CustomStringConvertible {
 // MARK: - BSONNull
 
 /// BSON Null
+/// EN: BSON Null.
 public struct BSONNull: Hashable, Sendable, CustomStringConvertible {
     public static let shared = BSONNull()
 
@@ -484,6 +516,7 @@ public struct BSONNull: Hashable, Sendable, CustomStringConvertible {
 // MARK: - BSONUndefined
 
 /// BSON Undefined（已废弃，但仍需支持）
+/// EN: BSON Undefined (deprecated, but still needs support).
 public struct BSONUndefined: Hashable, Sendable, CustomStringConvertible {
     public static let shared = BSONUndefined()
 
@@ -495,6 +528,7 @@ public struct BSONUndefined: Hashable, Sendable, CustomStringConvertible {
 // MARK: - JavaScript
 
 /// BSON JavaScript 代码
+/// EN: BSON JavaScript code.
 public struct BSONJavaScript: Hashable, Sendable, CustomStringConvertible {
     public let code: String
 
@@ -508,6 +542,7 @@ public struct BSONJavaScript: Hashable, Sendable, CustomStringConvertible {
 }
 
 /// BSON JavaScript 代码（带作用域）
+/// EN: BSON JavaScript code (with scope).
 public struct BSONJavaScriptWithScope: Hashable, Sendable {
     public let code: String
     public let scope: BSONDocument
@@ -518,9 +553,10 @@ public struct BSONJavaScriptWithScope: Hashable, Sendable {
     }
 }
 
-// MARK: - DBPointer（已废弃）
+// MARK: - DBPointer（已废弃） / DBPointer (Deprecated)
 
 /// BSON DBPointer（已废弃）
+/// EN: BSON DBPointer (deprecated).
 public struct BSONDBPointer: Hashable, Sendable {
     public let ref: String
     public let id: ObjectID
@@ -531,9 +567,10 @@ public struct BSONDBPointer: Hashable, Sendable {
     }
 }
 
-// MARK: - Symbol（已废弃）
+// MARK: - Symbol（已废弃） / Symbol (Deprecated)
 
 /// BSON Symbol（已废弃）
+/// EN: BSON Symbol (deprecated).
 public struct BSONSymbol: Hashable, Sendable, CustomStringConvertible {
     public let value: String
 

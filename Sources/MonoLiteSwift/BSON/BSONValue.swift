@@ -3,22 +3,23 @@
 import Foundation
 
 /// BSON 类型标识符（用于序列化）
+/// EN: BSON type identifiers (used for serialization).
 public enum BSONTypeCode: UInt8, Sendable {
     case double = 0x01
     case string = 0x02
     case document = 0x03
     case array = 0x04
     case binary = 0x05
-    case undefined = 0x06  // 已废弃
+    case undefined = 0x06  // 已废弃 / EN: deprecated
     case objectId = 0x07
     case bool = 0x08
     case dateTime = 0x09
     case null = 0x0A
     case regex = 0x0B
-    case dbPointer = 0x0C  // 已废弃
+    case dbPointer = 0x0C  // 已废弃 / EN: deprecated
     case javascript = 0x0D
-    case symbol = 0x0E     // 已废弃
-    case javascriptWithScope = 0x0F  // 已废弃
+    case symbol = 0x0E     // 已废弃 / EN: deprecated
+    case javascriptWithScope = 0x0F  // 已废弃 / EN: deprecated
     case int32 = 0x10
     case timestamp = 0x11
     case int64 = 0x12
@@ -28,7 +29,9 @@ public enum BSONTypeCode: UInt8, Sendable {
 }
 
 /// BSON 值类型
+/// EN: BSON value types.
 /// 遵循 MongoDB BSON 类型系统
+/// EN: Follows the MongoDB BSON type system.
 public enum BSONValue: Sendable, CustomStringConvertible {
     case double(Double)
     case string(String)
@@ -52,9 +55,10 @@ public enum BSONValue: Sendable, CustomStringConvertible {
     case minKey
     case maxKey
 
-    // MARK: - 类型代码
+    // MARK: - 类型代码 / Type Code
 
     /// 获取 BSON 类型代码
+    /// EN: Returns the BSON type code.
     public var typeCode: BSONTypeCode {
         switch self {
         case .double: return .double
@@ -81,14 +85,15 @@ public enum BSONValue: Sendable, CustomStringConvertible {
         }
     }
 
-    // MARK: - 类型优先级（用于比较排序）
+    // MARK: - 类型优先级（用于比较排序） / Type Order (for comparison sorting)
 
     /// MongoDB 类型排序优先级
+    /// EN: MongoDB type sorting priority.
     public var typeOrder: Int {
         switch self {
         case .minKey: return 0
         case .null: return 1
-        case .double, .int32, .int64, .decimal128: return 2  // 数字类型
+        case .double, .int32, .int64, .decimal128: return 2  // 数字类型 / EN: numeric types
         case .symbol, .string: return 3
         case .document: return 4
         case .array: return 5
@@ -105,7 +110,7 @@ public enum BSONValue: Sendable, CustomStringConvertible {
         }
     }
 
-    // MARK: - 描述
+    // MARK: - 描述 / Description
 
     public var description: String {
         switch self {
@@ -133,9 +138,10 @@ public enum BSONValue: Sendable, CustomStringConvertible {
         }
     }
 
-    // MARK: - 便捷访问
+    // MARK: - 便捷访问 / Convenience Accessors
 
     /// 作为整数值（如果可以转换）
+    /// EN: Returns as integer value (if convertible).
     public var intValue: Int? {
         switch self {
         case .int32(let v): return Int(v)
@@ -146,6 +152,7 @@ public enum BSONValue: Sendable, CustomStringConvertible {
     }
 
     /// 作为 Int64 值（如果可以转换）
+    /// EN: Returns as Int64 value (if convertible).
     public var int64Value: Int64? {
         switch self {
         case .int64(let v):
@@ -161,6 +168,7 @@ public enum BSONValue: Sendable, CustomStringConvertible {
     }
 
     /// 作为 Double 值（如果可以转换）
+    /// EN: Returns as Double value (if convertible).
     public var doubleValue: Double? {
         switch self {
         case .double(let v): return v
@@ -172,6 +180,7 @@ public enum BSONValue: Sendable, CustomStringConvertible {
     }
 
     /// 作为字符串值
+    /// EN: Returns as string value.
     public var stringValue: String? {
         switch self {
         case .string(let v): return v
@@ -181,6 +190,7 @@ public enum BSONValue: Sendable, CustomStringConvertible {
     }
 
     /// 作为布尔值
+    /// EN: Returns as boolean value.
     public var boolValue: Bool? {
         switch self {
         case .bool(let v): return v
@@ -189,6 +199,7 @@ public enum BSONValue: Sendable, CustomStringConvertible {
     }
 
     /// 作为文档
+    /// EN: Returns as document value.
     public var documentValue: BSONDocument? {
         switch self {
         case .document(let v): return v
@@ -197,6 +208,7 @@ public enum BSONValue: Sendable, CustomStringConvertible {
     }
 
     /// 作为数组
+    /// EN: Returns as array value.
     public var arrayValue: BSONArray? {
         switch self {
         case .array(let v): return v
@@ -205,6 +217,7 @@ public enum BSONValue: Sendable, CustomStringConvertible {
     }
 
     /// 作为 ObjectID
+    /// EN: Returns as ObjectID value.
     public var objectIdValue: ObjectID? {
         switch self {
         case .objectId(let v): return v
@@ -213,6 +226,7 @@ public enum BSONValue: Sendable, CustomStringConvertible {
     }
 
     /// 作为 Date
+    /// EN: Returns as Date value.
     public var dateValue: Date? {
         switch self {
         case .dateTime(let v): return v
@@ -221,6 +235,7 @@ public enum BSONValue: Sendable, CustomStringConvertible {
     }
 
     /// 是否为 null
+    /// EN: Returns true if the value is null.
     public var isNull: Bool {
         if case .null = self { return true }
         return false
@@ -254,7 +269,7 @@ extension BSONValue: Hashable {
         case (.decimal128(let a), .decimal128(let b)): return a == b
         case (.minKey, .minKey): return true
         case (.maxKey, .maxKey): return true
-        // 跨数字类型比较
+        // 跨数字类型比较 / EN: Cross-numeric type comparison
         case (.int32(let a), .int64(let b)): return Int64(a) == b
         case (.int64(let a), .int32(let b)): return a == Int64(b)
         case (.int32(let a), .double(let b)): return Double(a) == b

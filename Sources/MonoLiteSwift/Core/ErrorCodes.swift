@@ -3,9 +3,10 @@
 import Foundation
 
 /// MongoDB 兼容错误码定义
-/// 参考：https://github.com/mongodb/mongo/blob/master/src/mongo/base/error_codes.yml
+/// EN: MongoDB-compatible error code definitions
+/// 参考 / Reference: https://github.com/mongodb/mongo/blob/master/src/mongo/base/error_codes.yml
 public enum ErrorCode: Int, Sendable {
-    // MARK: - 通用错误 (1-99)
+    // MARK: - 通用错误 (1-99) / General Errors (1-99)
     case ok = 0
     case internalError = 1
     case badValue = 2
@@ -29,7 +30,7 @@ public enum ErrorCode: Int, Sendable {
     case emptyArrayOperation = 21
     case invalidBSON = 22
 
-    // MARK: - 命令错误 (26-50)
+    // MARK: - 命令错误 (26-50) / Command Errors (26-50)
     case namespaceNotFound = 26
     case indexNotFound = 27
     case pathNotViable = 28
@@ -49,7 +50,7 @@ public enum ErrorCode: Int, Sendable {
     case logWriteFailed = 42
     case cursorNotFound = 43
 
-    // MARK: - 查询和操作错误 (52-70)
+    // MARK: - 查询和操作错误 (52-70) / Query and Operation Errors (52-70)
     case dollarPrefixedFieldName = 52
     case invalidIdField = 53
     case notSingleValueField = 54
@@ -71,22 +72,23 @@ public enum ErrorCode: Int, Sendable {
     case networkTimeout = 89
     case operationFailed = 96
 
-    // MARK: - 事务/MVCC 错误
+    // MARK: - 事务/MVCC 错误 / Transaction/MVCC Errors
     case noSuchSession = 206
     case transactionTooOld = 225
     case noSuchTransaction = 251
     case transactionCommitted = 256
     case transactionAborted = 263
 
-    // MARK: - 写错误
+    // MARK: - 写错误 / Write Errors
     case duplicateKey = 11000
     case notWritablePrimary = 10107
 
-    // MARK: - 文档相关
+    // MARK: - 文档相关 / Document Related
     case documentTooLarge = 17419
     case documentValidationFailure = 121
 
     /// 错误码名称
+    /// EN: Error code name
     public var name: String {
         switch self {
         case .ok: return "OK"

@@ -2,9 +2,10 @@
 
 import Foundation
 
-// MARK: - 更新操作
+// MARK: - 更新操作 / Update Operations
 
 /// 应用更新操作符到文档
+/// EN: Apply update operators to document
 public func applyUpdate(_ doc: inout BSONDocument, update: BSONDocument) throws {
     for (key, value) in update {
         switch key {
@@ -117,10 +118,12 @@ public func applyUpdate(_ doc: inout BSONDocument, update: BSONDocument) throws 
 
         case "$setOnInsert":
             // $setOnInsert 仅在 upsert 产生新文档时生效，在普通更新中忽略
+            // EN: $setOnInsert only takes effect when upsert creates new document, ignored in normal updates
             break
 
         default:
             // 非操作符字段，直接设置（替换模式）
+            // EN: Non-operator field, set directly (replacement mode)
             if !key.hasPrefix("$") {
                 setField(&doc, key: key, value: value)
             }
@@ -128,11 +131,13 @@ public func applyUpdate(_ doc: inout BSONDocument, update: BSONDocument) throws 
     }
 }
 
-// MARK: - 字段操作
+// MARK: - 字段操作 / Field Operations
 
 /// 设置文档字段
+/// EN: Set document field
 public func setField(_ doc: inout BSONDocument, key: String, value: BSONValue) {
     // 处理点号路径
+    // EN: Handle dot notation path
     if key.contains(".") {
         setNestedField(&doc, path: key, value: value)
         return
@@ -142,6 +147,7 @@ public func setField(_ doc: inout BSONDocument, key: String, value: BSONValue) {
 }
 
 /// 设置嵌套字段
+/// EN: Set nested field
 private func setNestedField(_ doc: inout BSONDocument, path: String, value: BSONValue) {
     let parts = path.split(separator: ".").map(String.init)
 
@@ -154,6 +160,7 @@ private func setNestedField(_ doc: inout BSONDocument, path: String, value: BSON
     var parents: [(String, BSONDocument)] = []
 
     // 遍历到最后一级
+    // EN: Traverse to last level
     for i in 0..<(parts.count - 1) {
         let part = parts[i]
         if let existing = current[part], case .document(let nested) = existing {
@@ -166,9 +173,11 @@ private func setNestedField(_ doc: inout BSONDocument, path: String, value: BSON
     }
 
     // 设置最终值
+    // EN: Set final value
     current[parts.last!] = value
 
     // 反向重建文档链
+    // EN: Rebuild document chain in reverse
     for i in stride(from: parents.count - 1, through: 0, by: -1) {
         let (key, _) = parents[i]
         var parent = i == 0 ? doc : parents[i - 1].1
@@ -181,8 +190,10 @@ private func setNestedField(_ doc: inout BSONDocument, path: String, value: BSON
 }
 
 /// 移除文档字段
+/// EN: Remove document field
 public func removeField(_ doc: inout BSONDocument, key: String) {
     // 处理点号路径
+    // EN: Handle dot notation path
     if key.contains(".") {
         removeNestedField(&doc, path: key)
         return
@@ -192,6 +203,7 @@ public func removeField(_ doc: inout BSONDocument, key: String) {
 }
 
 /// 移除嵌套字段
+/// EN: Remove nested field
 private func removeNestedField(_ doc: inout BSONDocument, path: String) {
     let parts = path.split(separator: ".").map(String.init)
 
@@ -201,6 +213,7 @@ private func removeNestedField(_ doc: inout BSONDocument, path: String) {
     }
 
     // 获取父文档
+    // EN: Get parent document
     let parentPath = parts.dropLast().joined(separator: ".")
     if let parentVal = doc.getValue(forPath: parentPath),
        case .document(var parentDoc) = parentVal {
@@ -210,6 +223,7 @@ private func removeNestedField(_ doc: inout BSONDocument, path: String) {
 }
 
 /// 增加字段值
+/// EN: Increment field value
 public func incrementField(_ doc: inout BSONDocument, key: String, value: BSONValue) throws {
     let incAmount = toDouble(value)
 
@@ -218,6 +232,7 @@ public func incrementField(_ doc: inout BSONDocument, key: String, value: BSONVa
         let newVal = currentVal + incAmount
 
         // 保持类型
+        // EN: Preserve type
         let newValue: BSONValue
         switch existing {
         case .int32:
@@ -230,11 +245,13 @@ public func incrementField(_ doc: inout BSONDocument, key: String, value: BSONVa
         setField(&doc, key: key, value: newValue)
     } else {
         // 字段不存在，直接设置
+        // EN: Field does not exist, set directly
         setField(&doc, key: key, value: value)
     }
 }
 
 /// 乘法更新
+/// EN: Multiply update
 public func multiplyField(_ doc: inout BSONDocument, key: String, value: BSONValue) throws {
     let mulAmount = toDouble(value)
 
@@ -243,6 +260,7 @@ public func multiplyField(_ doc: inout BSONDocument, key: String, value: BSONVal
         let newVal = currentVal * mulAmount
 
         // 保持类型
+        // EN: Preserve type
         let newValue: BSONValue
         switch existing {
         case .int32:
@@ -255,11 +273,13 @@ public func multiplyField(_ doc: inout BSONDocument, key: String, value: BSONVal
         setField(&doc, key: key, value: newValue)
     } else {
         // 字段不存在，设置为 0
+        // EN: Field does not exist, set to 0
         setField(&doc, key: key, value: .double(0))
     }
 }
 
 /// 取最小值更新
+/// EN: Update with minimum value
 public func updateFieldMin(_ doc: inout BSONDocument, key: String, value: BSONValue) {
     if let existing = doc.getValue(forPath: key) {
         if compareBSONValues(value, existing) < 0 {
@@ -267,11 +287,13 @@ public func updateFieldMin(_ doc: inout BSONDocument, key: String, value: BSONVa
         }
     } else {
         // 字段不存在，直接设置
+        // EN: Field does not exist, set directly
         setField(&doc, key: key, value: value)
     }
 }
 
 /// 取最大值更新
+/// EN: Update with maximum value
 public func updateFieldMax(_ doc: inout BSONDocument, key: String, value: BSONValue) {
     if let existing = doc.getValue(forPath: key) {
         if compareBSONValues(value, existing) > 0 {
@@ -279,11 +301,13 @@ public func updateFieldMax(_ doc: inout BSONDocument, key: String, value: BSONVa
         }
     } else {
         // 字段不存在，直接设置
+        // EN: Field does not exist, set directly
         setField(&doc, key: key, value: value)
     }
 }
 
 /// 重命名字段
+/// EN: Rename field
 public func renameField(_ doc: inout BSONDocument, oldName: String, newName: String) {
     if let value = doc.getValue(forPath: oldName) {
         removeField(&doc, key: oldName)
@@ -292,6 +316,7 @@ public func renameField(_ doc: inout BSONDocument, oldName: String, newName: Str
 }
 
 /// 设置当前日期
+/// EN: Set current date
 public func setCurrentDate(_ doc: inout BSONDocument, key: String, spec: BSONValue) {
     let now = Date()
 
@@ -314,9 +339,10 @@ public func setCurrentDate(_ doc: inout BSONDocument, key: String, spec: BSONVal
     }
 }
 
-// MARK: - 数组操作
+// MARK: - 数组操作 / Array Operations
 
 /// 向数组追加元素
+/// EN: Append element to array
 public func pushToArray(_ doc: inout BSONDocument, key: String, value: BSONValue) throws {
     var arr: BSONArray
     if let existing = doc.getValue(forPath: key) {
@@ -329,6 +355,7 @@ public func pushToArray(_ doc: inout BSONDocument, key: String, value: BSONValue
     }
 
     // 检查是否有 $each 修饰符
+    // EN: Check if $each modifier exists
     if case .document(let valDoc) = value {
         if let eachVal = valDoc["$each"], case .array(let eachArr) = eachVal {
             arr.append(contentsOf: eachArr)
@@ -342,6 +369,7 @@ public func pushToArray(_ doc: inout BSONDocument, key: String, value: BSONValue
 }
 
 /// 从数组头部或尾部移除元素
+/// EN: Remove element from array head or tail
 public func popFromArray(_ doc: inout BSONDocument, key: String, value: BSONValue) {
     guard let existing = doc.getValue(forPath: key),
           case .array(var arr) = existing,
@@ -352,9 +380,11 @@ public func popFromArray(_ doc: inout BSONDocument, key: String, value: BSONValu
     let pos = toDouble(value)
     if pos >= 0 {
         // 移除尾部
+        // EN: Remove from tail
         arr.removeLast()
     } else {
         // 移除头部
+        // EN: Remove from head
         arr.removeFirst()
     }
 
@@ -362,6 +392,7 @@ public func popFromArray(_ doc: inout BSONDocument, key: String, value: BSONValu
 }
 
 /// 从数组移除匹配的元素
+/// EN: Remove matching elements from array
 public func pullFromArray(_ doc: inout BSONDocument, key: String, value: BSONValue) {
     guard let existing = doc.getValue(forPath: key),
           case .array(let arr) = existing else {
@@ -369,6 +400,7 @@ public func pullFromArray(_ doc: inout BSONDocument, key: String, value: BSONVal
     }
 
     // 如果 value 是一个包含查询条件的文档，使用 FilterMatcher
+    // EN: If value is a document containing query conditions, use FilterMatcher
     if case .document(let condition) = value {
         let matcher = FilterMatcher(condition)
         let newArr = arr.filter { item in
@@ -382,6 +414,7 @@ public func pullFromArray(_ doc: inout BSONDocument, key: String, value: BSONVal
     }
 
     // 简单值匹配
+    // EN: Simple value matching
     let newArr = arr.filter { item in
         compareBSONValues(item, value) != 0
     }
@@ -389,6 +422,7 @@ public func pullFromArray(_ doc: inout BSONDocument, key: String, value: BSONVal
 }
 
 /// 从数组移除所有指定的元素
+/// EN: Remove all specified elements from array
 public func pullAllFromArray(_ doc: inout BSONDocument, key: String, value: BSONValue) {
     guard let existing = doc.getValue(forPath: key),
           case .array(let arr) = existing else {
@@ -412,6 +446,7 @@ public func pullAllFromArray(_ doc: inout BSONDocument, key: String, value: BSON
 }
 
 /// 向数组添加唯一元素
+/// EN: Add unique element to array
 public func addToSet(_ doc: inout BSONDocument, key: String, value: BSONValue) {
     var arr: BSONArray
     if let existing = doc.getValue(forPath: key) {
@@ -424,6 +459,7 @@ public func addToSet(_ doc: inout BSONDocument, key: String, value: BSONValue) {
     }
 
     // 检查是否有 $each 修饰符
+    // EN: Check if $each modifier exists
     if case .document(let valDoc) = value {
         if let eachVal = valDoc["$each"], case .array(let eachArr) = eachVal {
             for v in eachArr {
@@ -437,6 +473,7 @@ public func addToSet(_ doc: inout BSONDocument, key: String, value: BSONValue) {
     }
 
     // 单个值
+    // EN: Single value
     if !arrayContains(arr, value) {
         arr.append(value)
         setField(&doc, key: key, value: .array(arr))
@@ -444,6 +481,7 @@ public func addToSet(_ doc: inout BSONDocument, key: String, value: BSONValue) {
 }
 
 /// 检查数组是否包含指定值
+/// EN: Check if array contains specified value
 private func arrayContains(_ arr: BSONArray, _ value: BSONValue) -> Bool {
     for item in arr {
         if compareBSONValues(item, value) == 0 {
@@ -453,9 +491,10 @@ private func arrayContains(_ arr: BSONArray, _ value: BSONValue) -> Bool {
     return false
 }
 
-// MARK: - 辅助函数
+// MARK: - 辅助函数 / Helper Functions
 
 /// 转换为 Double
+/// EN: Convert to Double
 private func toDouble(_ value: BSONValue) -> Double {
     switch value {
     case .int32(let v):
@@ -471,9 +510,10 @@ private func toDouble(_ value: BSONValue) -> Double {
     }
 }
 
-// MARK: - 文档辅助
+// MARK: - 文档辅助 / Document Helpers
 
 /// 深拷贝文档
+/// EN: Deep copy document
 public func copyDocument(_ doc: BSONDocument) -> BSONDocument {
     var copy = BSONDocument()
     for (key, value) in doc {
@@ -483,6 +523,7 @@ public func copyDocument(_ doc: BSONDocument) -> BSONDocument {
 }
 
 /// 深拷贝 BSON 值
+/// EN: Deep copy BSON value
 private func copyValue(_ value: BSONValue) -> BSONValue {
     switch value {
     case .document(let doc):
@@ -495,6 +536,7 @@ private func copyValue(_ value: BSONValue) -> BSONValue {
 }
 
 /// 获取文档字段值
+/// EN: Get document field value
 public func getDocField(_ doc: BSONDocument, _ key: String) -> BSONValue? {
     return doc.getValue(forPath: key)
 }

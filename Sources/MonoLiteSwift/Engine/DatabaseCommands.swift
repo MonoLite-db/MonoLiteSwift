@@ -4,10 +4,13 @@ import Foundation
 
 extension Database {
     /// 执行数据库命令（对齐 Go: Database.RunCommand）
+    /// EN: Execute database command (aligned with Go: Database.RunCommand)
     ///
-    /// 注意：该接口用于 wire protocol 命令路由层，命令格式为“有序 BSONDocument”（类似 Go bson.D）。
+    /// 注意：该接口用于 wire protocol 命令路由层，命令格式为"有序 BSONDocument"（类似 Go bson.D）。
+    /// EN: Note: This interface is used by wire protocol command routing layer, command format is "ordered BSONDocument" (similar to Go bson.D).
     public func runCommand(_ cmd: BSONDocument) async throws -> BSONDocument {
         // 以第一个 key 作为 command name（Go 行为）
+        // EN: Use first key as command name (Go behavior)
         guard let first = cmd.first else {
             throw MonoError.commandNotFound("")
         }
@@ -114,6 +117,8 @@ extension Database {
         }
     }
 
+    /// isMaster 命令
+    /// EN: isMaster command
     private func isMasterCommand() -> BSONDocument {
         BSONDocument([
             ("ismaster", .bool(true)),
@@ -129,6 +134,8 @@ extension Database {
         ])
     }
 
+    /// hello 命令
+    /// EN: hello command
     private func helloCommand() -> BSONDocument {
         BSONDocument([
             ("isWritablePrimary", .bool(true)),
@@ -146,6 +153,8 @@ extension Database {
         ])
     }
 
+    /// buildInfo 命令
+    /// EN: buildInfo command
     private func buildInfoCommand() -> BSONDocument {
         BSONDocument([
             ("version", .string("0.1.0")),
@@ -155,6 +164,8 @@ extension Database {
         ])
     }
 
+    /// listCollections 命令
+    /// EN: listCollections command
     private func listCollectionsCommand() -> BSONDocument {
         var arr = BSONArray()
         for name in listCollections() {
@@ -173,9 +184,11 @@ extension Database {
     }
 }
 
-// MARK: - Command implementations (subset)
+// MARK: - 命令实现（子集）/ Command Implementations (Subset)
 
 extension Database {
+    /// insert 命令
+    /// EN: insert command
     private func insertCommand(_ cmd: BSONDocument) async throws -> BSONDocument {
         guard let colName = cmd[firstKey: "insert"]?.stringValue else {
             throw MonoError.badValue("insert command requires collection name")
@@ -196,6 +209,7 @@ extension Database {
         }
 
         // 事务上下文（对齐 Go: ExtractCommandContext）
+        // EN: Transaction context (aligned with Go: ExtractCommandContext)
         let txn = try await extractTransactionIfAny(cmd)
         let inserted: Int32
         if let txn {
@@ -216,6 +230,8 @@ extension Database {
         ])
     }
 
+    /// find 命令
+    /// EN: find command
     private func findCommand(_ cmd: BSONDocument) async throws -> BSONDocument {
         guard let colName = cmd[firstKey: "find"]?.stringValue else {
             throw MonoError.badValue("find command requires collection name")
@@ -239,6 +255,7 @@ extension Database {
         let batchSize = Int64(cmd["batchSize"]?.intValue ?? 0)
 
         // find 不隐式创建集合（Go 行为）
+        // EN: find does not implicitly create collection (Go behavior)
         let col = getCollection(colName)
         let docs: [BSONDocument]
         if let col {
@@ -264,8 +281,11 @@ extension Database {
         ])
     }
 
+    /// getMore 命令
+    /// EN: getMore command
     private func getMoreCommand(_ cmd: BSONDocument) async throws -> BSONDocument {
         // getMore: <cursorId>, collection: <name>, batchSize: <int>
+        // EN: getMore: <cursorId>, collection: <name>, batchSize: <int>
         guard let cursorIdVal = cmd[firstKey: "getMore"]?.int64Value ?? cmd[firstKey: "getMore"]?.intValue.map(Int64.init) else {
             throw MonoError.badValue("getMore requires cursor id")
         }
@@ -278,6 +298,7 @@ extension Database {
         let (nextBatch, nextCursorId, ns) = await cursorManager.getNextBatch(cursorId: cursorId, batchSize: batchSize)
         guard let ns else {
             // cursor 不存在
+            // EN: cursor does not exist
             throw MonoError.cursorNotFound(cursorId)
         }
 
@@ -292,11 +313,15 @@ extension Database {
         ])
     }
 
+    /// killCursors 命令
+    /// EN: killCursors command
     private func killCursorsCommand(_ cmd: BSONDocument) async throws -> BSONDocument {
         guard let colName = cmd["killCursors"]?.stringValue ?? cmd[firstKey: "killCursors"]?.stringValue else {
             throw MonoError.badValue("killCursors requires collection name")
         }
-        _ = colName // 目前不按集合校验 cursor namespace，按 cursorId 直接关闭
+        // 目前不按集合校验 cursor namespace，按 cursorId 直接关闭
+        // EN: Currently not validating cursor namespace by collection, closing directly by cursorId
+        _ = colName
 
         guard case .array(let arr)? = cmd["cursors"] else {
             throw MonoError.badValue("killCursors requires cursors array")
@@ -319,6 +344,7 @@ extension Database {
         for id in ids where !killedSet.contains(id) { cursorsNotFound.append(.int64(id)) }
 
         // Go 对齐：cursorsAlive/cursorsUnknown 目前返回空数组
+        // EN: Go aligned: cursorsAlive/cursorsUnknown currently return empty arrays
         return BSONDocument([
             ("cursorsKilled", .array(cursorsKilled)),
             ("cursorsNotFound", .array(cursorsNotFound)),
@@ -328,6 +354,8 @@ extension Database {
         ])
     }
 
+    /// update 命令
+    /// EN: update command
     private func updateCommand(_ cmd: BSONDocument) async throws -> BSONDocument {
         guard let colName = cmd[firstKey: "update"]?.stringValue else {
             throw MonoError.badValue("update command requires collection name")
@@ -337,6 +365,7 @@ extension Database {
         }
 
         // 简化：依次执行，每条 update 仅支持 q/u/upsert
+        // EN: Simplified: execute sequentially, each update only supports q/u/upsert
         var totalMatched: Int64 = 0
         var totalModified: Int64 = 0
         var upserted = BSONArray()
@@ -356,6 +385,7 @@ extension Database {
             }
             guard let col else {
                 // 非 upsert 且集合不存在：返回 0 匹配/修改
+                // EN: Non-upsert and collection doesn't exist: return 0 matched/modified
                 continue
             }
 
@@ -386,6 +416,8 @@ extension Database {
         return out
     }
 
+    /// delete 命令
+    /// EN: delete command
     private func deleteCommand(_ cmd: BSONDocument) async throws -> BSONDocument {
         guard let colName = cmd[firstKey: "delete"]?.stringValue else {
             throw MonoError.badValue("delete command requires collection name")
@@ -413,6 +445,7 @@ extension Database {
                 }
             } else {
                 // 简化：多删用循环 deleteOne
+                // EN: Simplified: use deleteOne loop for multi-delete
                 while true {
                     let n: Int64
                     if let txn {
@@ -432,6 +465,8 @@ extension Database {
         ])
     }
 
+    /// count 命令
+    /// EN: count command
     private func countCommand(_ cmd: BSONDocument) async throws -> BSONDocument {
         guard let colName = cmd[firstKey: "count"]?.stringValue else {
             throw MonoError.badValue("count command requires collection name")
@@ -450,6 +485,8 @@ extension Database {
         ])
     }
 
+    /// drop 命令
+    /// EN: drop command
     private func dropCommand(_ cmd: BSONDocument) async throws -> BSONDocument {
         guard let colName = cmd[firstKey: "drop"]?.stringValue else {
             throw MonoError.badValue("drop command requires collection name")
@@ -458,6 +495,8 @@ extension Database {
         return BSONDocument([("ok", .int32(1))])
     }
 
+    /// createIndexes 命令
+    /// EN: createIndexes command
     private func createIndexesCommand(_ cmd: BSONDocument) async throws -> BSONDocument {
         guard let colName = cmd[firstKey: "createIndexes"]?.stringValue else {
             throw MonoError.badValue("createIndexes requires collection name")
@@ -487,6 +526,8 @@ extension Database {
         ])
     }
 
+    /// listIndexes 命令
+    /// EN: listIndexes command
     private func listIndexesCommand(_ cmd: BSONDocument) async throws -> BSONDocument {
         guard let colName = cmd[firstKey: "listIndexes"]?.stringValue else {
             throw MonoError.badValue("listIndexes requires collection name")
@@ -516,6 +557,8 @@ extension Database {
         ])
     }
 
+    /// dropIndexes 命令
+    /// EN: dropIndexes command
     private func dropIndexesCommand(_ cmd: BSONDocument) async throws -> BSONDocument {
         guard let colName = cmd[firstKey: "dropIndexes"]?.stringValue else {
             throw MonoError.badValue("dropIndexes requires collection name")
@@ -533,7 +576,8 @@ extension Database {
         let before = await col.listIndexes().count
 
         if index == "*" {
-            // drop all except _id_
+            // 删除所有索引（除了 _id_）
+            // EN: Drop all indexes (except _id_)
             let idxDocs = await col.listIndexes()
             for d in idxDocs {
                 if d["name"]?.stringValue == "_id_" { continue }
@@ -551,6 +595,8 @@ extension Database {
         ])
     }
 
+    /// aggregate 命令
+    /// EN: aggregate command
     private func aggregateCommand(_ cmd: BSONDocument) async throws -> BSONDocument {
         guard let colName = cmd[firstKey: "aggregate"]?.stringValue else {
             throw MonoError.badValue("aggregate command requires collection name")
@@ -570,6 +616,7 @@ extension Database {
         let pipeline = try Pipeline(stages: stages, db: self)
 
         // aggregate 不隐式创建集合（Go 行为）
+        // EN: aggregate does not implicitly create collection (Go behavior)
         let col = getCollection(colName)
         let inputDocs: [BSONDocument]
         if let col {
@@ -594,6 +641,8 @@ extension Database {
         ])
     }
 
+    /// distinct 命令
+    /// EN: distinct command
     private func distinctCommand(_ cmd: BSONDocument) async throws -> BSONDocument {
         guard let colName = cmd[firstKey: "distinct"]?.stringValue else {
             throw MonoError.badValue("distinct command requires collection name")
@@ -616,6 +665,8 @@ extension Database {
         ])
     }
 
+    /// findAndModify 命令
+    /// EN: findAndModify command
     private func findAndModifyCommand(_ cmd: BSONDocument) async throws -> BSONDocument {
         let colName = cmd[firstKey: "findAndModify"]?.stringValue ?? cmd[firstKey: "findandmodify"]?.stringValue
         guard let colName, !colName.isEmpty else {
@@ -630,6 +681,7 @@ extension Database {
         let sort = cmd["sort"]?.documentValue ?? BSONDocument()
 
         // aggregate/findAndModify 与 Go 一致：仅 upsert 时允许创建集合
+        // EN: aggregate/findAndModify aligned with Go: only create collection when upsert
         let col: MonoCollection?
         if upsert {
             col = try await collection(colName)
@@ -649,6 +701,7 @@ extension Database {
         }
 
         // 先根据 query + sort 选出目标文档（用 _id 锚定后续 update/delete，避免 updateOne 的扫描顺序偏差）
+        // EN: First select target document by query + sort (anchor by _id for subsequent update/delete, avoid updateOne scan order deviation)
         let target: BSONDocument?
         if sort.isEmpty {
             target = try await col.findOne(query)
@@ -669,6 +722,7 @@ extension Database {
                 ])
             }
             // 按 _id 删除以确保命中正确文档
+            // EN: Delete by _id to ensure hitting the correct document
             if let id = old.getValue(forPath: "_id") {
                 _ = try await col.deleteOne(BSONDocument([("_id", id)]))
             } else {
@@ -706,7 +760,8 @@ extension Database {
             ])
         }
 
-        // not found
+        // 未找到
+        // EN: Not found
         if !upsert {
             return BSONDocument([
                 ("lastErrorObject", .document(BSONDocument([
@@ -718,7 +773,8 @@ extension Database {
             ])
         }
 
-        // upsert path
+        // upsert 路径
+        // EN: upsert path
         let res = try await col.updateOne(query, update: update, upsert: true)
         let upsertedId = res.upsertedID
         let value: BSONDocument?
@@ -741,6 +797,8 @@ extension Database {
         ])
     }
 
+    /// dbStats 命令
+    /// EN: dbStats command
     private func dbStatsCommand(_ cmd: BSONDocument) async throws -> BSONDocument {
         let dbName = cmd["$db"]?.stringValue ?? "db"
 
@@ -768,6 +826,8 @@ extension Database {
         ])
     }
 
+    /// collStats 命令
+    /// EN: collStats command
     private func collStatsCommand(_ cmd: BSONDocument) async throws -> BSONDocument {
         let colName = cmd[firstKey: "collStats"]?.stringValue ?? cmd[firstKey: "collstats"]?.stringValue
         guard let colName, !colName.isEmpty else {
@@ -794,8 +854,11 @@ extension Database {
         ])
     }
 
+    /// serverStatus 命令
+    /// EN: serverStatus command
     private func serverStatusCommand() async -> BSONDocument {
         // 统计信息（简化，关键字段对齐 Go）
+        // EN: Statistics (simplified, key fields aligned with Go)
         let pageCount = await pager.pageCount
         let freePages = await pager.freePageCount
         let cursorOpen = await cursorManager.count
@@ -834,6 +897,8 @@ extension Database {
         ])
     }
 
+    /// connectionStatus 命令
+    /// EN: connectionStatus command
     private func connectionStatusCommand() -> BSONDocument {
         BSONDocument([
             ("current", .int32(1)),
@@ -843,8 +908,11 @@ extension Database {
         ])
     }
 
+    /// explain 命令
+    /// EN: explain command
     private func explainCommand(_ cmd: BSONDocument) async throws -> BSONDocument {
-        // Extract inner command to explain
+        // 提取内部命令进行解释
+        // EN: Extract inner command to explain
         guard let explainVal = cmd["explain"], case .document(let explainCmd) = explainVal else {
             throw MonoError.badValue("explain requires a command document")
         }
@@ -874,7 +942,8 @@ extension Database {
         }
 
         guard let col = getCollection(colName) else {
-            // Collection does not exist; return empty explain
+            // 集合不存在；返回空 explain
+            // EN: Collection does not exist; return empty explain
             var result = ExplainResult()
             result.namespace = colName
             result.stage = "EOF"
@@ -888,9 +957,11 @@ extension Database {
     }
 }
 
-// MARK: - BSON helpers
+// MARK: - BSON 辅助 / BSON Helpers
 
 private extension BSONDocument {
+    /// 获取第一个匹配 key 的值
+    /// EN: Get value for first matching key
     subscript(firstKey key: String) -> BSONValue? {
         for (k, v) in self {
             if k == key { return v }
@@ -899,19 +970,24 @@ private extension BSONDocument {
     }
 }
 
-// MARK: - Session/txn helpers
+// MARK: - 会话/事务辅助 / Session/Transaction Helpers
 
 extension Database {
+    /// 从命令中提取事务（如果有）
+    /// EN: Extract transaction from command (if any)
     private func extractTransactionIfAny(_ cmd: BSONDocument) async throws -> Transaction? {
         // 无会话字段 -> 非事务
+        // EN: No session field -> not a transaction
         let ctx = try await sessionManager.extractCommandContext(cmd: cmd)
         return ctx.transaction
     }
 }
 
-// MARK: - Transaction/Session commands
+// MARK: - 事务/会话命令 / Transaction/Session Commands
 
 extension Database {
+    /// startTransaction 命令
+    /// EN: startTransaction command
     private func startTransactionCommand(_ cmd: BSONDocument) async throws -> BSONDocument {
         guard let lsidVal = cmd["lsid"], case .document(let lsid) = lsidVal else {
             throw MonoError.badValue("lsid is required for startTransaction")
@@ -929,6 +1005,8 @@ extension Database {
         return BSONDocument([("ok", .int32(1))])
     }
 
+    /// commitTransaction 命令
+    /// EN: commitTransaction command
     private func commitTransactionCommand(_ cmd: BSONDocument) async throws -> BSONDocument {
         guard let lsidVal = cmd["lsid"], case .document(let lsid) = lsidVal else {
             throw MonoError.badValue("lsid is required for commitTransaction")
@@ -942,6 +1020,8 @@ extension Database {
         return BSONDocument([("ok", .int32(1))])
     }
 
+    /// abortTransaction 命令
+    /// EN: abortTransaction command
     private func abortTransactionCommand(_ cmd: BSONDocument) async throws -> BSONDocument {
         guard let lsidVal = cmd["lsid"], case .document(let lsid) = lsidVal else {
             throw MonoError.badValue("lsid is required for abortTransaction")
@@ -955,6 +1035,8 @@ extension Database {
         return BSONDocument([("ok", .int32(1))])
     }
 
+    /// endSessions 命令
+    /// EN: endSessions command
     private func endSessionsCommand(_ cmd: BSONDocument) async throws -> BSONDocument {
         guard case .array(let arr)? = cmd[firstKey: "endSessions"] else {
             throw MonoError.badValue("endSessions requires an array of session ids")
@@ -967,6 +1049,8 @@ extension Database {
         return BSONDocument([("ok", .int32(1))])
     }
 
+    /// refreshSessions 命令
+    /// EN: refreshSessions command
     private func refreshSessionsCommand(_ cmd: BSONDocument) async throws -> BSONDocument {
         guard case .array(let arr)? = cmd[firstKey: "refreshSessions"] else {
             throw MonoError.badValue("refreshSessions requires an array of session ids")
@@ -979,5 +1063,3 @@ extension Database {
         return BSONDocument([("ok", .int32(1))])
     }
 }
-
-

@@ -3,19 +3,24 @@
 import Foundation
 
 /// 查询过滤器匹配器
+/// EN: Query filter matcher
 /// 支持 MongoDB 风格的查询运算符
+/// EN: Supports MongoDB-style query operators
 public struct FilterMatcher: Sendable {
     /// 过滤条件
+    /// EN: Filter condition
     private let filter: BSONDocument
 
     /// 创建过滤器匹配器
+    /// EN: Create filter matcher
     public init(_ filter: BSONDocument) {
         self.filter = filter
     }
 
-    // MARK: - 主匹配方法
+    // MARK: - 主匹配方法 / Main Match Method
 
     /// 检查文档是否匹配过滤器
+    /// EN: Check if document matches filter
     public func match(_ doc: BSONDocument) -> Bool {
         if filter.isEmpty {
             return true
@@ -30,11 +35,13 @@ public struct FilterMatcher: Sendable {
         return true
     }
 
-    // MARK: - 元素匹配
+    // MARK: - 元素匹配 / Element Matching
 
     /// 匹配单个过滤条件
+    /// EN: Match single filter condition
     private func matchElement(doc: BSONDocument, key: String, value: BSONValue) -> Bool {
         // 处理逻辑运算符
+        // EN: Handle logical operators
         switch key {
         case "$and":
             return matchAnd(doc: doc, value: value)
@@ -49,20 +56,24 @@ public struct FilterMatcher: Sendable {
         }
 
         // 获取文档字段值
+        // EN: Get document field value
         let docVal = doc.getValue(forPath: key)
 
         // 如果 value 是 document，可能包含比较运算符
+        // EN: If value is document, may contain comparison operators
         if case .document(let operators) = value {
             return matchOperators(docVal: docVal, operators: operators)
         }
 
         // 直接相等比较
+        // EN: Direct equality comparison
         return valuesEqual(docVal, value)
     }
 
-    // MARK: - 运算符匹配
+    // MARK: - 运算符匹配 / Operator Matching
 
     /// 匹配比较运算符
+    /// EN: Match comparison operators
     private func matchOperators(docVal: BSONValue?, operators: BSONDocument) -> Bool {
         for (op, operand) in operators {
             if !matchOperator(docVal: docVal, operator: op, operand: operand) {
@@ -73,6 +84,7 @@ public struct FilterMatcher: Sendable {
     }
 
     /// 匹配单个运算符
+    /// EN: Match single operator
     private func matchOperator(docVal: BSONValue?, operator op: String, operand: BSONValue) -> Bool {
         switch op {
         case "$eq":
@@ -130,13 +142,15 @@ public struct FilterMatcher: Sendable {
 
         default:
             // 未知运算符
+            // EN: Unknown operator
             return false
         }
     }
 
-    // MARK: - 逻辑运算符
+    // MARK: - 逻辑运算符 / Logical Operators
 
     /// 处理 $and
+    /// EN: Handle $and
     private func matchAnd(doc: BSONDocument, value: BSONValue) -> Bool {
         guard case .array(let arr) = value else { return false }
 
@@ -152,6 +166,7 @@ public struct FilterMatcher: Sendable {
     }
 
     /// 处理 $or
+    /// EN: Handle $or
     private func matchOr(doc: BSONDocument, value: BSONValue) -> Bool {
         guard case .array(let arr) = value else { return false }
 
@@ -167,6 +182,7 @@ public struct FilterMatcher: Sendable {
     }
 
     /// 处理 $not
+    /// EN: Handle $not
     private func matchNot(doc: BSONDocument, value: BSONValue) -> Bool {
         if case .document(let subFilter) = value {
             let subMatcher = FilterMatcher(subFilter)
@@ -176,13 +192,15 @@ public struct FilterMatcher: Sendable {
     }
 
     /// 处理 $nor
+    /// EN: Handle $nor
     private func matchNor(doc: BSONDocument, value: BSONValue) -> Bool {
         return !matchOr(doc: doc, value: value)
     }
 
-    // MARK: - 比较运算符
+    // MARK: - 比较运算符 / Comparison Operators
 
     /// 处理 $in
+    /// EN: Handle $in
     private func matchIn(docVal: BSONValue?, operand: BSONValue) -> Bool {
         guard case .array(let arr) = operand else { return false }
 
@@ -195,6 +213,7 @@ public struct FilterMatcher: Sendable {
     }
 
     /// 处理 $type
+    /// EN: Handle $type
     private func matchType(docVal: BSONValue?, operand: BSONValue) -> Bool {
         guard let docVal = docVal else { return false }
 
@@ -215,6 +234,7 @@ public struct FilterMatcher: Sendable {
     }
 
     /// 处理 $regex
+    /// EN: Handle $regex
     private func matchRegex(docVal: BSONValue?, operand: BSONValue) -> Bool {
         guard let docVal = docVal else { return false }
         guard case .string(let str) = docVal else { return false }
@@ -239,6 +259,7 @@ public struct FilterMatcher: Sendable {
     }
 
     /// 处理 $size
+    /// EN: Handle $size
     private func matchSize(docVal: BSONValue?, operand: BSONValue) -> Bool {
         guard let docVal = docVal else { return false }
         guard case .array(let arr) = docVal else { return false }
@@ -259,6 +280,7 @@ public struct FilterMatcher: Sendable {
     }
 
     /// 处理 $all
+    /// EN: Handle $all
     private func matchAll(docVal: BSONValue?, operand: BSONValue) -> Bool {
         guard let docVal = docVal else { return false }
         guard case .array(let arr) = docVal else { return false }
@@ -280,6 +302,7 @@ public struct FilterMatcher: Sendable {
     }
 
     /// 处理 $elemMatch
+    /// EN: Handle $elemMatch
     private func matchElemMatch(docVal: BSONValue?, operand: BSONValue) -> Bool {
         guard let docVal = docVal else { return false }
         guard case .array(let arr) = docVal else { return false }
@@ -297,6 +320,7 @@ public struct FilterMatcher: Sendable {
     }
 
     /// 处理 $mod
+    /// EN: Handle $mod
     private func matchMod(docVal: BSONValue?, operand: BSONValue) -> Bool {
         guard let docVal = docVal else { return false }
         guard case .array(let arr) = operand, arr.count == 2 else { return false }
@@ -331,9 +355,10 @@ public struct FilterMatcher: Sendable {
         return value % divisor == remainder
     }
 
-    // MARK: - 辅助方法
+    // MARK: - 辅助方法 / Helper Methods
 
     /// 比较两个值是否相等
+    /// EN: Compare if two values are equal
     private func valuesEqual(_ a: BSONValue?, _ b: BSONValue?) -> Bool {
         guard let a = a, let b = b else {
             return a == nil && b == nil
@@ -342,6 +367,7 @@ public struct FilterMatcher: Sendable {
     }
 
     /// 类型名转换为 BSON 类型号
+    /// EN: Convert type name to BSON type number
     private func typeNameToNumber(_ name: String) -> Int {
         switch name {
         case "double": return 1
@@ -370,6 +396,7 @@ public struct FilterMatcher: Sendable {
     }
 
     /// 获取 BSON 类型号
+    /// EN: Get BSON type number
     private func getBsonTypeNumber(_ value: BSONValue) -> Int {
         switch value {
         case .double: return 1
@@ -397,9 +424,10 @@ public struct FilterMatcher: Sendable {
     }
 }
 
-// MARK: - 便捷函数
+// MARK: - 便捷函数 / Convenience Functions
 
 /// 检查文档是否匹配过滤器
+/// EN: Check if document matches filter
 public func matchesFilter(_ doc: BSONDocument, _ filter: BSONDocument) -> Bool {
     let matcher = FilterMatcher(filter)
     return matcher.match(doc)

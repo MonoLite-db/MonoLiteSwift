@@ -3,20 +3,25 @@
 import Foundation
 
 /// BSON 解码器
+/// EN: BSON decoder.
 /// 将 BSON 二进制数据解析为 BSONDocument
+/// EN: Parses BSON binary data into BSONDocument.
 public struct BSONDecoder {
     public init() {}
 
     /// 解码 BSON 数据为文档
+    /// EN: Decodes BSON data to document.
     public func decode(_ data: Data) throws -> BSONDocument {
         var reader = BSONReader(data: data)
         return try reader.readDocument()
     }
 
     /// 解码 BSON 数据为数组
+    /// EN: Decodes BSON data to array.
     public func decodeArray(_ data: Data) throws -> BSONArray {
         let doc = try decode(data)
         // 将文档转换为数组（按索引顺序）
+        // EN: Convert document to array (sorted by index)
         let sortedElements = doc.sorted { a, b in
             (Int(a.key) ?? 0) < (Int(b.key) ?? 0)
         }
@@ -25,6 +30,7 @@ public struct BSONDecoder {
 }
 
 /// BSON 数据读取器
+/// EN: BSON data reader.
 private struct BSONReader {
     private var data: Data
     private var offset: Int = 0
@@ -37,12 +43,13 @@ private struct BSONReader {
         data.count - offset
     }
 
-    // MARK: - 读取文档
+    // MARK: - 读取文档 / Read Document
 
     mutating func readDocument() throws -> BSONDocument {
         let startOffset = offset
 
         // 读取文档长度
+        // EN: Read document length
         let length = try readInt32()
 
         guard length >= 5 else {
@@ -56,10 +63,12 @@ private struct BSONReader {
         var document = BSONDocument()
 
         // 读取元素直到遇到结束符
+        // EN: Read elements until terminator
         while offset < startOffset + Int(length) - 1 {
             let typeCode = try readByte()
 
             // 检查结束符
+            // EN: Check for terminator
             if typeCode == 0x00 {
                 break
             }
@@ -71,6 +80,7 @@ private struct BSONReader {
         }
 
         // 验证结束符
+        // EN: Verify terminator
         let terminator = try readByte()
         if terminator != 0x00 {
             throw BSONError.invalidDocument("Missing document terminator")
@@ -79,7 +89,7 @@ private struct BSONReader {
         return document
     }
 
-    // MARK: - 读取值
+    // MARK: - 读取值 / Read Value
 
     mutating func readValue(typeCode: UInt8) throws -> BSONValue {
         guard let type = BSONTypeCode(rawValue: typeCode) else {
@@ -99,6 +109,7 @@ private struct BSONReader {
         case .array:
             let doc = try readDocument()
             // 转换为数组
+            // EN: Convert to array
             let sortedElements = doc.sorted { a, b in
                 (Int(a.key) ?? 0) < (Int(b.key) ?? 0)
             }
@@ -144,6 +155,7 @@ private struct BSONReader {
 
         case .javascriptWithScope:
             // 读取总长度
+            // EN: Read total length
             _ = try readInt32()
             let code = try readString()
             let scope = try readDocument()
@@ -173,7 +185,7 @@ private struct BSONReader {
         }
     }
 
-    // MARK: - 基础读取方法
+    // MARK: - 基础读取方法 / Basic Read Methods
 
     mutating func readByte() throws -> UInt8 {
         guard offset < data.count else {
@@ -218,6 +230,7 @@ private struct BSONReader {
         let stringData = try readBytes(Int(length) - 1)
 
         // 读取并验证 null 终止符
+        // EN: Read and verify null terminator
         let terminator = try readByte()
         if terminator != 0x00 {
             throw BSONError.invalidDocument("Missing string terminator")
@@ -280,10 +293,11 @@ private struct BSONReader {
     }
 }
 
-// MARK: - 便捷方法
+// MARK: - 便捷方法 / Convenience Methods
 
 extension BSONDocument {
     /// 从 BSON 数据解析
+    /// EN: Parses from BSON data.
     public static func fromBSON(_ data: Data) throws -> BSONDocument {
         try BSONDecoder().decode(data)
     }
@@ -291,6 +305,7 @@ extension BSONDocument {
 
 extension BSONArray {
     /// 从 BSON 数据解析
+    /// EN: Parses from BSON data.
     public static func fromBSON(_ data: Data) throws -> BSONArray {
         try BSONDecoder().decodeArray(data)
     }

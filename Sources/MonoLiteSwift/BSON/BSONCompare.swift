@@ -3,22 +3,29 @@
 import Foundation
 
 /// BSON 值比较器
+/// EN: BSON value comparator.
 /// 遵循 MongoDB 的比较规则和类型排序优先级
+/// EN: Follows MongoDB's comparison rules and type sorting priority.
 public enum BSONCompare {
     /// 比较两个 BSON 值
+    /// EN: Compares two BSON values.
     /// - Returns: 负数表示 lhs < rhs，0 表示相等，正数表示 lhs > rhs
+    /// EN: Returns negative if lhs < rhs, 0 if equal, positive if lhs > rhs.
     public static func compare(_ lhs: BSONValue, _ rhs: BSONValue) -> Int {
         // 首先比较类型优先级
+        // EN: First compare type priority
         let typeOrder = lhs.typeOrder - rhs.typeOrder
         if typeOrder != 0 {
             return typeOrder
         }
 
         // 同类型比较
+        // EN: Same type comparison
         return compareValues(lhs, rhs)
     }
 
     /// 比较同类型的值
+    /// EN: Compares values of the same type.
     private static func compareValues(_ lhs: BSONValue, _ rhs: BSONValue) -> Int {
         switch (lhs, rhs) {
         case (.minKey, .minKey):
@@ -34,6 +41,7 @@ public enum BSONCompare {
             return 0
 
         // 数字类型（统一比较）
+        // EN: Numeric types (unified comparison)
         case (.double(_), _), (.int32(_), _), (.int64(_), _), (.decimal128(_), _):
             return compareNumeric(lhs, rhs)
 
@@ -88,14 +96,17 @@ public enum BSONCompare {
 
         default:
             // 不同类型（但 typeOrder 相同）的比较
+            // EN: Different types (but same typeOrder) comparison
             return 0
         }
     }
 
-    // MARK: - 数字比较
+    // MARK: - 数字比较 / Numeric Comparison
 
     /// 比较数字类型
+    /// EN: Compares numeric types.
     /// 支持跨类型比较（int32, int64, double, decimal128）
+    /// EN: Supports cross-type comparison (int32, int64, double, decimal128).
     private static func compareNumeric(_ lhs: BSONValue, _ rhs: BSONValue) -> Int {
         // Decimal128 vs Decimal128: exact compare (Go parity)
         if case .decimal128(let a) = lhs, case .decimal128(let b) = rhs {
@@ -114,17 +125,20 @@ public enum BSONCompare {
 
         case (.int(let a), .double(let b)):
             // 检查 double 是否能精确表示该整数
-            if b.isNaN { return -1 }  // NaN 大于任何整数
+            // EN: Check if double can precisely represent the integer
+            if b.isNaN { return -1 }  // NaN 大于任何整数 / EN: NaN is greater than any integer
             let maxSafeInt: Int64 = 1 << 53
             if a > -maxSafeInt && a < maxSafeInt {
                 return compareDoubles(Double(a), b)
             }
             // 大整数需要特殊处理
+            // EN: Large integers need special handling
             if b.isInfinite { return b > 0 ? -1 : 1 }
             let bInt = Int64(b)
             if a < bInt { return -1 }
             if a > bInt { return 1 }
             // 整数部分相等，检查小数部分
+            // EN: Integer parts equal, check fractional part
             return b > Double(bInt) ? -1 : 0
 
         case (.double, .int):
@@ -139,6 +153,7 @@ public enum BSONCompare {
     }
 
     /// 数字值的统一表示
+    /// EN: Unified representation of numeric values.
     private enum NumericValue {
         case int(Int64)
         case double(Double)
@@ -146,6 +161,7 @@ public enum BSONCompare {
     }
 
     /// 提取数字值
+    /// EN: Extracts numeric value.
     private static func numericValue(_ value: BSONValue) -> NumericValue {
         switch value {
         case .int32(let v):
@@ -162,10 +178,12 @@ public enum BSONCompare {
     }
 
     /// 比较两个 Double
+    /// EN: Compares two Double values.
     private static func compareDoubles(_ a: Double, _ b: Double) -> Int {
         // 处理 NaN
+        // EN: Handle NaN
         if a.isNaN && b.isNaN { return 0 }
-        if a.isNaN { return 1 }  // NaN 大于其他
+        if a.isNaN { return 1 }  // NaN 大于其他 / EN: NaN is greater than others
         if b.isNaN { return -1 }
 
         if a < b { return -1 }
@@ -173,22 +191,27 @@ public enum BSONCompare {
         return 0
     }
 
-    // MARK: - 文档比较
+    // MARK: - 文档比较 / Document Comparison
 
     /// 比较两个文档
+    /// EN: Compares two documents.
     private static func compareDocuments(_ lhs: BSONDocument, _ rhs: BSONDocument) -> Int {
         // 首先比较字段数量
+        // EN: First compare field count
         if lhs.count != rhs.count {
             return lhs.count < rhs.count ? -1 : 1
         }
 
         // 按顺序比较每个字段
+        // EN: Compare each field in order
         for (lElem, rElem) in zip(lhs, rhs) {
             // 比较键
+            // EN: Compare keys
             let keyCmp = lElem.key.compare(rElem.key).rawValue
             if keyCmp != 0 { return keyCmp }
 
             // 比较值
+            // EN: Compare values
             let valueCmp = compare(lElem.value, rElem.value)
             if valueCmp != 0 { return valueCmp }
         }
@@ -196,39 +219,46 @@ public enum BSONCompare {
         return 0
     }
 
-    // MARK: - 数组比较
+    // MARK: - 数组比较 / Array Comparison
 
     /// 比较两个数组
+    /// EN: Compares two arrays.
     private static func compareArrays(_ lhs: BSONArray, _ rhs: BSONArray) -> Int {
         let minCount = min(lhs.count, rhs.count)
 
         // 逐元素比较
+        // EN: Compare element by element
         for i in 0..<minCount {
             let cmp = compare(lhs[i], rhs[i])
             if cmp != 0 { return cmp }
         }
 
         // 短数组小于长数组
+        // EN: Shorter array is less than longer array
         if lhs.count < rhs.count { return -1 }
         if lhs.count > rhs.count { return 1 }
         return 0
     }
 
-    // MARK: - 二进制比较
+    // MARK: - 二进制比较 / Binary Comparison
 
     /// 比较两个二进制值
+    /// EN: Compares two binary values.
     private static func compareBinary(_ lhs: BSONBinary, _ rhs: BSONBinary) -> Int {
         // 首先比较长度
+        // EN: First compare length
         if lhs.data.count != rhs.data.count {
             return lhs.data.count < rhs.data.count ? -1 : 1
         }
 
         // 然后比较子类型
+        // EN: Then compare subtype
         if lhs.subtype.rawValue != rhs.subtype.rawValue {
             return lhs.subtype.rawValue < rhs.subtype.rawValue ? -1 : 1
         }
 
         // 最后比较数据
+        // EN: Finally compare data
         for (a, b) in zip(lhs.data, rhs.data) {
             if a != b {
                 return a < b ? -1 : 1
@@ -247,11 +277,13 @@ extension BSONValue: Comparable {
     }
 }
 
-// MARK: - 排序辅助
+// MARK: - 排序辅助 / Sorting Helpers
 
 extension Array where Element == BSONDocument {
     /// 根据排序规范排序文档数组
+    /// EN: Sorts document array by sort specification.
     /// - Parameter sortSpec: 排序规范，例如 ["name": 1, "age": -1]
+    /// EN: Sort specification, e.g. ["name": 1, "age": -1]
     public mutating func sort(by sortSpec: BSONDocument) {
         sort { lhs, rhs in
             for (key, direction) in sortSpec {
@@ -261,6 +293,7 @@ extension Array where Element == BSONDocument {
                 let cmp = BSONCompare.compare(lhsValue, rhsValue)
                 if cmp != 0 {
                     // direction > 0 为升序，< 0 为降序
+                    // EN: direction > 0 is ascending, < 0 is descending
                     let dir = direction.intValue ?? 1
                     return dir > 0 ? cmp < 0 : cmp > 0
                 }
@@ -270,6 +303,7 @@ extension Array where Element == BSONDocument {
     }
 
     /// 返回排序后的新数组
+    /// EN: Returns a new sorted array.
     public func sorted(by sortSpec: BSONDocument) -> [BSONDocument] {
         var result = self
         result.sort(by: sortSpec)
@@ -277,9 +311,10 @@ extension Array where Element == BSONDocument {
     }
 }
 
-// MARK: - 便捷比较函数
+// MARK: - 便捷比较函数 / Convenience Comparison Functions
 
 /// 比较两个 BSON 值
+/// EN: Compares two BSON values.
 public func compareBSONValues(_ lhs: BSONValue, _ rhs: BSONValue) -> Int {
     BSONCompare.compare(lhs, rhs)
 }

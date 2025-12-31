@@ -2,26 +2,65 @@
 
 import Foundation
 
+/// 校验统计信息
+/// EN: Validation statistics
 public struct ValidationStats: Sendable {
+    /// 总页面数
+    /// EN: Total pages count
     public var totalPages: Int = 0
+
+    /// 数据页数
+    /// EN: Data pages count
     public var dataPages: Int = 0
+
+    /// 索引页数
+    /// EN: Index pages count
     public var indexPages: Int = 0
+
+    /// 空闲页数
+    /// EN: Free pages count
     public var freePages: Int = 0
+
+    /// 元数据页数
+    /// EN: Meta pages count
     public var metaPages: Int = 0
+
+    /// 集合数
+    /// EN: Collections count
     public var collections: Int = 0
+
+    /// 总文档数
+    /// EN: Total documents count
     public var totalDocuments: Int = 0
+
+    /// 总索引数
+    /// EN: Total indexes count
     public var totalIndexes: Int = 0
 }
 
+/// 校验结果
+/// EN: Validation result
 public struct ValidationResult: Sendable {
+    /// 是否有效
+    /// EN: Whether valid
     public var valid: Bool = true
+
+    /// 错误列表
+    /// EN: Errors list
     public var errors: [String] = []
+
+    /// 警告列表
+    /// EN: Warnings list
     public var warnings: [String] = []
+
+    /// 统计信息
+    /// EN: Statistics
     public var stats: ValidationStats = ValidationStats()
 }
 
 extension Database {
     /// 校验数据库结构完整性（对齐 Go: engine/validate.go 的主流程）
+    /// EN: Validate database structure integrity (aligned with Go: engine/validate.go main flow)
     public func validate() async -> ValidationResult {
         var result = ValidationResult()
 
@@ -33,6 +72,8 @@ extension Database {
         return result
     }
 
+    /// 校验空闲列表
+    /// EN: Validate free list
     private func validateFreeList(_ result: inout ValidationResult) async {
         let header = await pager.headerSnapshot()
         let head = header.freeListHead
@@ -73,6 +114,8 @@ extension Database {
         }
     }
 
+    /// 校验所有页面
+    /// EN: Validate all pages
     private func validatePages(_ result: inout ValidationResult) async {
         let header = await pager.headerSnapshot()
         result.stats.totalPages = Int(header.pageCount)
@@ -86,10 +129,12 @@ extension Database {
                 case .index:
                     result.stats.indexPages += 1
                 case .catalog:
-                    // tracked via header.catalogPageId
+                    // 通过 header.catalogPageId 跟踪
+                    // EN: Tracked via header.catalogPageId
                     break
                 case .free:
-                    // counted in validateFreeList
+                    // 在 validateFreeList 中计数
+                    // EN: Counted in validateFreeList
                     break
                 case .meta:
                     result.stats.metaPages += 1
@@ -97,6 +142,7 @@ extension Database {
                     break
                 case .freeList:
                     // 兼容：目前 Swift 可能存在该类型页；不计入核心统计
+                    // EN: Compatibility: Swift may have this page type; not counted in core statistics
                     break
                 }
             } catch {
@@ -106,6 +152,8 @@ extension Database {
         }
     }
 
+    /// 校验 catalog
+    /// EN: Validate catalog
     private func validateCatalog(_ result: inout ValidationResult) async {
         let header = await pager.headerSnapshot()
         let catalogId = header.catalogPageId
@@ -118,12 +166,16 @@ extension Database {
             }
 
             // 深度校验：尝试解析 catalog（支持单页/多页）
+            // EN: Deep validation: try to parse catalog (supports single/multi-page)
             do {
                 let magic = DataEndian.readUInt32LE(page.data, at: 0)
                 if magic == Self.catalogMagic {
                     // multi-page：只要能成功 decode 即可
+                    // EN: multi-page: just need to successfully decode
                     // 复用 Database.loadCatalogMultiPage 的逻辑：读取后 decode
+                    // EN: Reuse Database.loadCatalogMultiPage logic: read then decode
                     // 这里不改变内存状态，因此简单地重跑解析流程
+                    // EN: Not changing memory state here, so simply re-run parsing flow
                     _ = try await decodeCatalogFromMultiPage(firstPage: page)
                 } else {
                     let bsonLen = Int(DataEndian.readUInt32LE(page.data, at: 0))
@@ -142,6 +194,8 @@ extension Database {
         }
     }
 
+    /// 从多页 catalog 解码
+    /// EN: Decode from multi-page catalog
     private func decodeCatalogFromMultiPage(firstPage: Page) async throws -> BSONDocument {
         let data = firstPage.data
         if data.count < Self.catalogHeaderLen {
@@ -171,6 +225,8 @@ extension Database {
         return try dec.decode(bsonData.prefix(totalLen))
     }
 
+    /// 校验所有集合
+    /// EN: Validate all collections
     private func validateCollections(_ result: inout ValidationResult) async {
         result.stats.collections = collections.count
 
@@ -181,6 +237,8 @@ extension Database {
         }
     }
 
+    /// 校验数据页链表
+    /// EN: Validate data page chain
     private func validateDataPageChain(collectionName: String, info: CollectionInfo, result: inout ValidationResult) async {
         if info.firstPageId == 0 { return }
 
@@ -224,6 +282,8 @@ extension Database {
         }
     }
 
+    /// 校验索引
+    /// EN: Validate indexes
     private func validateIndexes(collectionName: String, info: CollectionInfo, result: inout ValidationResult) async {
         for meta in info.indexes {
             do {
@@ -238,5 +298,3 @@ extension Database {
         }
     }
 }
-
-
